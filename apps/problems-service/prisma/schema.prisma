@@ -1,0 +1,51 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+model Problem {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String
+  options     Json
+  answer      Int // index de la bonne réponse
+  difficulty  String   @default("medium") // e.g. "easy", "medium", "hard"
+  createdAt   DateTime @default(now())
+
+  attempts     Attempt[]
+  ProblemState ProblemState[]
+}
+
+model Attempt {
+  id        Int      @id @default(autoincrement())
+  userId    String
+  problemId Int
+  selected  Int
+  isCorrect Boolean
+  createdAt DateTime @default(now())
+
+  problem Problem @relation(fields: [problemId], references: [id])
+}
+
+model ProblemState {
+  id        Int      @id @default(autoincrement())
+  userId    String
+  problemId Int
+  status    String // e.g. "unattempted", "solved", "failed"
+  updatedAt DateTime @updatedAt
+
+  problem Problem @relation(fields: [problemId], references: [id])
+
+  @@unique([userId, problemId])
+}

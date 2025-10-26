@@ -1,0 +1,185 @@
+services:
+  # === Observability stack ===
+  otel-collector:
+    image: otel/opentelemetry-collector:latest
+    volumes:
+      - ./otel-collector/otel-collector-config.yaml:/etc/otel/config.yaml
+    command:
+      - '--config=/etc/otel/config.yaml'
+    ports:
+      - "4317:4317" #grpc
+      - "4318:4318" #http
+      - "9464:9464" #prometheus metrics
+    depends_on:
+      - loki
+      - prometheus
+      - tempo
+    networks:
+      - micro-network
+
+  prometheus:
+    image: prom/prometheus
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    networks:
+      - micro-network
+
+  tempo:
+    image: grafana/tempo:2.4.1
+    command: [ "-config.file=/etc/tempo.yaml" ]
+    volumes:
+      - ./tempo/tempo.yaml:/etc/tempo.yaml
+    ports:
+      - "3200:3200"
+    networks:
+      - micro-network
+
+  loki:
+    image: grafana/loki:main
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki/loki-config.yaml:/etc/loki/local-config.yaml
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - micro-network
+
+  grafana:
+    image: grafana/grafana:10.2.3
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    depends_on:
+      - prometheus
+      - tempo
+      - loki
+    networks:
+      - micro-network
+
+  # --------------------------
+  # Databases
+  # --------------------------
+  auth-db:
+    image: postgres:16
+    container_name: auth-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: auth_db
+    ports:
+      - "5441:5432"
+    volumes:
+      - auth-db-data:/var/lib/postgresql/data
+    networks:
+      - micro-network
+
+  problems-db:
+    image: postgres:16
+    container_name: problems-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: problemsdb
+    ports:
+      - "5442:5432"
+    volumes:
+      - problems-db-data:/var/lib/postgresql/data
+    networks:
+      - micro-network
+
+  lives-db:
+    image: postgres:16
+    container_name: lives-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: lives_db
+    ports:
+      - "5443:5432"
+    volumes:
+      - lives-db-data:/var/lib/postgresql/data
+    networks:
+      - micro-network
+
+  # --------------------------
+  # Microservices
+  # --------------------------
+  auth-service:
+    build:
+      context: ../apps/auth-service
+      dockerfile: Dockerfile
+    container_name: auth-service
+    ports:
+      - "5001:5000"
+    environment:
+      SERVICE_NAME: auth-service
+      JWT_SECRET: change_this_secret
+      DATABASE_URL: postgres://postgres:postgres@auth-db:5432/auth_db
+      PORT: 5000
+      OTEL_TRACES_URL: http://otel-collector:4318/v1/traces
+      OTEL_METRICS_URL: http://otel-collector:4318/v1/metrics
+      OTEL_LOGS_URL: http://otel-collector:4318/v1/logs
+    depends_on:
+      - auth-db
+      - otel-collector
+    networks:
+      - micro-network
+
+  problems-service:
+    build:
+      context: ../apps/problems-service
+      dockerfile: Dockerfile
+    container_name: problems-service
+    ports:
+      - "5002:5000"
+    environment:
+      SERVICE_NAME: problems-service
+      DATABASE_URL: postgres://postgres:postgres@problems-db:5432/problems_db
+      PORT: 5000
+      OTEL_TRACES_URL: http://otel-collector:4318/v1/traces
+      OTEL_METRICS_URL: http://otel-collector:4318/v1/metrics
+    depends_on:
+      - problems-db
+      - otel-collector
+    networks:
+      - micro-network
+
+  lives-service:
+    build:
+      context: ../apps/lives-service
+      dockerfile: Dockerfile
+    container_name: lives-service
+    ports:
+      - "5003:5000"
+    environment:
+      SERVICE_NAME: lives-service
+      DATABASE_URL: postgres://postgres:postgres@auth-db:5432/auth_db
+      PORT: 5000
+      OTEL_TRACES_URL: http://otel-collector:4318/v1/traces
+      OTEL_METRICS_URL: http://otel-collector:4318/v1/metrics
+    depends_on:
+      - lives-db
+      - otel-collector
+    networks:
+      - micro-network
+
+# --------------------------
+# Volumes & Network
+# --------------------------
+volumes:
+  auth-db-data:
+  problems-db-data:
+  lives-db-data:
+  loki-data:
+
+networks:
+  micro-network:
+    driver: bridge
+
+
+
+
+

@@ -1,0 +1,7 @@
+{
+  "name": "@packages/shared-utils",
+  "type": "module",
+  "exports": {
+    "./*": "./*"
+  }
+}

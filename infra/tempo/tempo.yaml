@@ -1,0 +1,14 @@
+server:
+  http_listen_port: 3200
+
+distributor:
+  receivers: {}
+
+ingester:
+  trace_idle_period: 5m
+
+storage:
+  trace:
+    backend: local
+    local:
+      path: /tmp/tempo/traces
