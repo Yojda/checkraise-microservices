@@ -76,6 +76,8 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
     const {email, password} = req.body;
 
+    setTimeout(() => {}, 200); // Mitigation delay
+
     const user = await prisma.user.findUnique({where: {email}});
     if (!user) {
         return res.status(401).json({error: 'Invalid credentials'});

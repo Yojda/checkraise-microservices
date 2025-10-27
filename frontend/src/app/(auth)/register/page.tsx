@@ -7,7 +7,7 @@ import { useAuthStore } from '@/stores/authStore';
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { register, loading, error, success, clearMessages } = useAuthStore();
+  const { register, loading, error, success } = useAuthStore();
 
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -15,7 +15,6 @@ export default function RegisterPage() {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    clearMessages();
 
     await register(username, email, password);
 
